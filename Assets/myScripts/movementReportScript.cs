@@ -40,6 +40,7 @@ namespace Assets.myScripts
         private Coroutine playMusicCoroutine;
         private Coroutine notDancingEnoughCoroutine;
         private Coroutine movingDuringSilenceCoroutine;
+        private bool gameInProgress = false;
 
         void Start()
         {
@@ -50,26 +51,31 @@ namespace Assets.myScripts
             r_Controller.GetComponent<SteamVR_TrackedController>().TriggerClicked += Triggered;
             l_Controller.GetComponent<SteamVR_TrackedController>().TriggerClicked += Triggered;
 
+            setText("Press trigger to begin");
             //StartCoroutine(PlayGame());
         }
 
         void Triggered(object sender, ClickedEventArgs e)
         {
             // Player must pull trigger to begin game
-            StartCoroutine(PlayGame());
+            if (!gameInProgress)
+            {
+                StartCoroutine(PlayGame());
+            }
         }
 
         IEnumerator PlayGame()
         {
+            gameInProgress = true;
             // Count off before game begins
             int secondsUntilGame = beginWaitSeconds;
             while(secondsUntilGame > 0)
             {
-                gameText.text = "Music Starting in " + secondsUntilGame + " Seconds";
+                setText("Music Starting in " + secondsUntilGame + " Seconds");
                 yield return new WaitForSeconds(1);
                 secondsUntilGame--;
             }
-            gameText.text = "";
+            clearText();
 
             // Play Music
             playMusicCoroutine = StartCoroutine(PlayMusic());
@@ -100,7 +106,6 @@ namespace Assets.myScripts
                     song.Pause();
                     songIsPlaying = false;
                     yield return new WaitForSeconds(dontDanceWaitSeconds);
-                    gameText.text = "need to be still now";
                     dontMove = true;
                     if (notDancingEnoughCoroutine != null)
                     {
@@ -142,8 +147,7 @@ namespace Assets.myScripts
                         // Player is moving
                         if (dontMove)
                         {
-                            gameText.text = "You Moved! Game Over";
-                            gameOver();
+                            gameOver("You Moved!");
                         }
                         minMovementCube.GetComponent<Renderer>().material = green;
                     }
@@ -186,20 +190,26 @@ namespace Assets.myScripts
             int secondsUntilGameOver = notDancingWaitSeconds;
             while (secondsUntilGameOver > 0)
             {
-                gameText.text = "You're not dancing enough! You have " + secondsUntilGameOver + " seconds";
+                setText("You're not dancing enough! You have " + secondsUntilGameOver + " seconds");
                 yield return new WaitForSeconds(1);
                 secondsUntilGameOver--;
             }
-            gameText.text = "You didn't dance enough. Game Over";
-            gameOver();
+            gameOver("You didn't dance enough.");
             nde_isRunning = false;
         }
 
-        void gameOver()
+        void gameOver(string reason)
         {
+            setText("Game Over: " + reason);
             StopCoroutine(playMusicCoroutine);
             StopCoroutine(checkForMotionCoroutine);
             song.Stop();
+            gameInProgress = false;
+        }
+
+        void setText(string s)
+        {
+            gameText.text = s;
         }
 
         void clearText()
