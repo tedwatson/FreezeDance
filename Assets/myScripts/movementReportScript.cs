@@ -52,7 +52,7 @@ namespace Assets.myScripts
             l_Controller.GetComponent<SteamVR_TrackedController>().TriggerClicked += Triggered;
 
             setText("Press trigger to begin");
-            StartCoroutine(PlayGame());
+            //StartCoroutine(PlayGame());
         }
 
         void Triggered(object sender, ClickedEventArgs e)
@@ -110,7 +110,6 @@ namespace Assets.myScripts
                 float min = songIsPlaying ? songMin : Mathf.Abs(freezeMin - dontDanceWaitSeconds);
                 float max = songIsPlaying ? songMax : Mathf.Abs(freezeMax - dontDanceWaitSeconds);
                 float waitTime = Random.Range(min, max);
-                //print("wait time = " + waitTime);
                 yield return new WaitForSeconds(waitTime);
 
                 // Switch song state
@@ -118,12 +117,12 @@ namespace Assets.myScripts
                 {
                     song.Pause();
                     songIsPlaying = false;
+                    setText("Freeze!");
                     yield return new WaitForSeconds(dontDanceWaitSeconds);
                     dontMove = true;
                     if (notDancingEnoughCoroutine != null)
                     {
                         StopCoroutine(notDancingEnoughCoroutine);
-                        clearText();
                         nde_isRunning = false;
                     }
                     songCube.GetComponent<Renderer>().material = red;
