@@ -115,20 +115,21 @@ namespace Assets.myScripts
                 // Switch song state
                 if (songIsPlaying)
                 {
-                    song.Pause();
-                    songIsPlaying = false;
-                    setText("Freeze!");
-                    yield return new WaitForSeconds(dontDanceWaitSeconds);
-                    dontMove = true;
                     if (notDancingEnoughCoroutine != null)
                     {
                         StopCoroutine(notDancingEnoughCoroutine);
                         nde_isRunning = false;
                     }
+                    song.Pause();
+                    songIsPlaying = false;
+                    setText("Freeze!");
+                    yield return new WaitForSeconds(dontDanceWaitSeconds);
+                    dontMove = true;
                     songCube.GetComponent<Renderer>().material = red;
                 }
                 else
                 {
+                    clearText();
                     song.Play();
                     songIsPlaying = true;
                     dontMove = false;
