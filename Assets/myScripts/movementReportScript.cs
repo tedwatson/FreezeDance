@@ -24,25 +24,33 @@ namespace Assets.myScripts
         public float freezeMin = 3f;
         public float freezeMax = 4f;
         public int beginWaitSeconds = 3;
+        public int notDancingWaitSeconds = 3;
+        public float dontDanceWaitSeconds = 1f;
 
         private Arithmetic arithmetic;
         private const float controllerStillThreshold = 0.029f;
         private const float headsetStillThreshold = 0.016f;
         private const float controllerMovingThreshold = 0.711f;
         private const float headsetMovingThreshold = 0.201f;
-        private bool playerIsMoving;
+        private bool nde_isRunning = false; // is notDancingEnough() coroutine running
+        private bool dontMove = false;
         private bool songIsPlaying = false;
+        private AudioSource song;
+        private Coroutine checkForMotionCoroutine;
+        private Coroutine playMusicCoroutine;
+        private Coroutine notDancingEnoughCoroutine;
+        private Coroutine movingDuringSilenceCoroutine;
 
         void Start()
         {
             arithmetic = new Arithmetic();
+            song = GetComponent<AudioSource>();
 
             // Have controller triggers activate an method called "Triggered"
             r_Controller.GetComponent<SteamVR_TrackedController>().TriggerClicked += Triggered;
             l_Controller.GetComponent<SteamVR_TrackedController>().TriggerClicked += Triggered;
 
-            //temp
-            StartCoroutine(PlayGame());
+            //StartCoroutine(PlayGame());
         }
 
         void Triggered(object sender, ClickedEventArgs e)
@@ -61,38 +69,52 @@ namespace Assets.myScripts
                 yield return new WaitForSeconds(1);
                 secondsUntilGame--;
             }
+            gameText.text = "";
 
             // Play Music
-            StartCoroutine(PlayMusic());
+            playMusicCoroutine = StartCoroutine(PlayMusic());
 
             // Start checking for motion
-            StartCoroutine(checkForMotion());
+            checkForMotionCoroutine = StartCoroutine(checkForMotion());
         }
 
         IEnumerator PlayMusic()
         {
             // Play music
             songCube.GetComponent<Renderer>().material = green;
+            song.Play();
             songIsPlaying = true;
 
             while (true)
             {
                 // Wait a random amount of time
-                float min = songIsPlaying ? songMin : freezeMin;
-                float max = songIsPlaying ? songMax : freezeMax;
+                float min = songIsPlaying ? songMin : Mathf.Abs(freezeMin - dontDanceWaitSeconds);
+                float max = songIsPlaying ? songMax : Mathf.Abs(freezeMax - dontDanceWaitSeconds);
                 float waitTime = Random.Range(min, max);
-                print("wait time = " + waitTime);
+                //print("wait time = " + waitTime);
                 yield return new WaitForSeconds(waitTime);
 
                 // Switch song state
                 if (songIsPlaying)
                 {
+                    song.Pause();
                     songIsPlaying = false;
+                    yield return new WaitForSeconds(dontDanceWaitSeconds);
+                    gameText.text = "need to be still now";
+                    dontMove = true;
+                    if (notDancingEnoughCoroutine != null)
+                    {
+                        StopCoroutine(notDancingEnoughCoroutine);
+                        clearText();
+                        nde_isRunning = false;
+                    }
                     songCube.GetComponent<Renderer>().material = red;
                 }
                 else
                 {
+                    song.Play();
                     songIsPlaying = true;
+                    dontMove = false;
                     songCube.GetComponent<Renderer>().material = green;
                 }
             }
@@ -110,37 +132,80 @@ namespace Assets.myScripts
                 yield return l_cd.coroutine;
                 yield return h_cd.coroutine;
 
-                // See if player is still enough
-                if ( (float)r_cd.result > controllerStillThreshold + stillTolerance ||
-                     (float)l_cd.result > controllerStillThreshold + stillTolerance ||
-                     (float)h_cd.result > headsetStillThreshold + stillTolerance)
+                if (!songIsPlaying)
                 {
-                    // Player is moving
-                    minMovementCube.GetComponent<Renderer>().material = green;
+                    // See if player is still enough
+                    if ((float)r_cd.result > controllerStillThreshold + stillTolerance ||
+                         (float)l_cd.result > controllerStillThreshold + stillTolerance ||
+                         (float)h_cd.result > headsetStillThreshold + stillTolerance)
+                    {
+                        // Player is moving
+                        if (dontMove)
+                        {
+                            gameText.text = "You Moved! Game Over";
+                            gameOver();
+                        }
+                        minMovementCube.GetComponent<Renderer>().material = green;
+                    }
+                    else
+                    {
+                        // Player is stationary
+                        minMovementCube.GetComponent<Renderer>().material = red;
+                    }
                 }
-                else
+                else // if (songIsPlaying)
                 {
-                    // Player is stationary
-                    minMovementCube.GetComponent<Renderer>().material = red;
-                }
-
-                // See if player is moving enough
-                if ((float)r_cd.result < controllerMovingThreshold - movingTolerance ||
-                     (float)l_cd.result < controllerMovingThreshold - movingTolerance ||
-                     (float)h_cd.result < headsetMovingThreshold - movingTolerance)
-                {
-                    // Player is not moving enough
-                    maxMovementCube.GetComponent<Renderer>().material = red;
-                }
-                else
-                {
-                    // Player is moving enough
-                    maxMovementCube.GetComponent<Renderer>().material = green;
+                    // See if player is moving enough
+                    if ((float)r_cd.result < controllerMovingThreshold - movingTolerance ||
+                         (float)l_cd.result < controllerMovingThreshold - movingTolerance ||
+                         (float)h_cd.result < headsetMovingThreshold - movingTolerance)
+                    {
+                        // Player is not moving enough
+                        if(!nde_isRunning) notDancingEnoughCoroutine = StartCoroutine(notDancingEnough());
+                        maxMovementCube.GetComponent<Renderer>().material = red;
+                    }
+                    else
+                    {
+                        // Player is moving enough
+                        maxMovementCube.GetComponent<Renderer>().material = green;
+                        if (notDancingEnoughCoroutine != null)
+                        {
+                            StopCoroutine(notDancingEnoughCoroutine);
+                            clearText();
+                            nde_isRunning = false;
+                        }
+                    }
                 }
             }
         }
 
-        
+        IEnumerator notDancingEnough()
+        {
+            nde_isRunning = true;
+            yield return new WaitForSeconds(1);
+            int secondsUntilGameOver = notDancingWaitSeconds;
+            while (secondsUntilGameOver > 0)
+            {
+                gameText.text = "You're not dancing enough! You have " + secondsUntilGameOver + " seconds";
+                yield return new WaitForSeconds(1);
+                secondsUntilGameOver--;
+            }
+            gameText.text = "You didn't dance enough. Game Over";
+            gameOver();
+            nde_isRunning = false;
+        }
+
+        void gameOver()
+        {
+            StopCoroutine(playMusicCoroutine);
+            StopCoroutine(checkForMotionCoroutine);
+            song.Stop();
+        }
+
+        void clearText()
+        {
+            gameText.text = "";
+        }
 
     }
 }
