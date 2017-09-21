@@ -52,7 +52,7 @@ namespace Assets.myScripts
             l_Controller.GetComponent<SteamVR_TrackedController>().TriggerClicked += Triggered;
 
             setText("Press trigger to begin");
-            //StartCoroutine(PlayGame());
+            StartCoroutine(PlayGame());
         }
 
         void Triggered(object sender, ClickedEventArgs e)
@@ -64,9 +64,22 @@ namespace Assets.myScripts
             }
         }
 
+        void GiveInstructions()
+        {
+            setText("Welcome to Freeze Dance!\n" +
+                    "The rules are simple: dance when the\n" +
+                    "music plays and freeze when it stops\n" +
+                    "Have fun!");
+        }
+
         IEnumerator PlayGame()
         {
             gameInProgress = true;
+
+            // Give instructions
+            GiveInstructions();
+            yield return new WaitForSeconds(7);
+
             // Count off before game begins
             int secondsUntilGame = beginWaitSeconds;
             while(secondsUntilGame > 0)
