@@ -213,7 +213,7 @@ namespace Assets.myScripts
 
         void gameOver(string reason)
         {
-            setText("Game Over: " + reason);
+            setText("Game Over: " + reason + "\nPress the trigger to play again");
             StopCoroutine(playMusicCoroutine);
             StopCoroutine(checkForMotionCoroutine);
             song.Stop();
